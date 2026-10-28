@@ -25,8 +25,8 @@ dependencies:
   
   # Offline Speech & Background Services
   vosk_flutter: any
-  flutter_background_service: ^2.4.6
-  flutter_background_service_android: ^2.4.6
+  flutter_background_service: any
+  flutter_background_service_android: any
   flutter_local_notifications: ^16.0.0
 
 dev_dependencies:

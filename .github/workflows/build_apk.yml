@@ -24,12 +24,24 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Create Android Project Files
-        run: flutter create --platforms=android .
-
-      - name: Patch minSdkVersion & Permissions
+      - name: Generate Android Skeleton
         run: |
-          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/g' android/app/build.gradle
+          flutter create --org com.rased --project-name rased_v2 temp_proj
+          cp -r temp_proj/android ./android
+          rm -rf temp_proj
+
+      - name: Patch Android Config & Permissions
+        run: |
+          # رفع minSdkVersion في كلا نوعي ملفات build.gradle
+          if [ -f android/app/build.gradle ]; then
+            sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/g' android/app/build.gradle
+            sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/g' android/app/build.gradle
+          fi
+          if [ -f android/app/build.gradle.kts ]; then
+            sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/g' android/app/build.gradle.kts
+          fi
+
+          # إضافة الصلاحيات والخدمة لـ AndroidManifest
           sed -i '/<application/i \    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<\/application>/i \        <service android:name="id.flutter.flutter_background_service.BackgroundService" android:foregroundServiceType="microphone|location" />' android/app/src/main/AndroidManifest.xml
 

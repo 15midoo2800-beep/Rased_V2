@@ -1,0 +1,42 @@
+name: rased_v2
+description: RASED Offline License Plate Recognition System.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # UI & Utilities
+  shared_preferences: ^2.2.2
+  file_picker: ^6.1.1
+  excel: ^3.0.0
+  geolocator: ^10.1.0
+  url_launcher: ^6.2.1
+  permission_handler: ^11.0.1
+  
+  # NoSQL Database (O(1) Speed)
+  isar: ^3.1.0
+  isar_flutter_libs: ^3.1.0
+  path_provider: ^2.1.1
+  
+  # Offline Speech & Background Services
+  vosk_flutter: ^0.1.1
+  flutter_background_service: ^2.4.6
+  flutter_background_service_android: ^2.4.6
+  flutter_local_notifications: ^16.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  build_runner: any
+  isar_generator: ^3.1.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/model/ # مسار النموذج الصوتي الخفيف الذي سنضيفه لاحقاً
+    

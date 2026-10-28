@@ -16,7 +16,7 @@ dependencies:
   excel: ^3.0.0
   geolocator: ^10.1.0
   url_launcher: ^6.2.1
-  permission_handler: ^11.0.1
+  permission_handler: ^10.4.5
   
   # NoSQL Database (O(1) Speed)
   isar: ^3.1.0
@@ -38,4 +38,4 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/model/ # مسار النموذج الصوتي الخفيف الذي سنضيفه لاحقاً
+    - assets/model/

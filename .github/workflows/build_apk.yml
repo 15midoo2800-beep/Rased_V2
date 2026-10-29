@@ -32,7 +32,7 @@ jobs:
           mkdir -p android/app/src/main/res/mipmap-anydpi-v26
           mkdir -p android/app/src/main/kotlin/com/rased/rased_v2
 
-          # 1. إنشاء كود MainActivity.kt لمنع إغلاق التطبيق فور فتحه
+          # 1. كود النشاط الرئيسي
           cat << 'EOF' > android/app/src/main/kotlin/com/rased/rased_v2/MainActivity.kt
           package com.rased.rased_v2
 
@@ -42,18 +42,18 @@ jobs:
           }
           EOF
 
-          # 2. إعدادات gradle.properties
+          # 2. ملف gradle.properties
           cat << 'EOF' > android/gradle.properties
           org.gradle.jvmargs=-Xmx4G
           android.useAndroidX=true
           android.enableJetifier=true
           EOF
 
-          # 3. إنشاء local.properties
+          # 3. إعداد local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
           echo "sdk.dir=$ANDROID_HOME" >> android/local.properties
 
-          # 4. ملف settings.gradle الكلاسيكي
+          # 4. ملف settings.gradle
           cat << 'EOF' > android/settings.gradle
           include ':app'
 
@@ -113,7 +113,7 @@ jobs:
           }
           EOF
 
-          # 6. ملف android/app/build.gradle
+          # 6. ملف app/build.gradle
           cat << 'EOF' > android/app/build.gradle
           def localProperties = new Properties()
           def localPropertiesFile = rootProject.file('local.properties')
@@ -182,7 +182,7 @@ jobs:
           </adaptive-icon>
           EOF
 
-          # 8. ملف AndroidManifest.xml المحدث باسم Activity الصحيح
+          # 8. ملف AndroidManifest.xml شاملاً استعلامات التعرف على الصوت <queries>
           cat << 'EOF' > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -193,6 +193,12 @@ jobs:
               <uses-permission android:name="android.permission.WAKE_LOCK" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+
+              <queries>
+                  <intent>
+                      <action android:name="android.speech.RecognitionService" />
+                  </intent>
+              </queries>
 
               <application
                   android:label="RASED"

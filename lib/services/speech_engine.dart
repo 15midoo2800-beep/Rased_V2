@@ -1,244 +1,265 @@
-
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'dart:math';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SheekhaFullEngine {
-  static Map<String, dynamic> userLearnedMap = {};
-  static Map<String, String> userWordMap = {};
+  static Map<String, Map<String, String>> _learnedMappings = {};
+
+  // قائمة الحروف المعتمدة نظامياً في اللوحات السعودية
+  static const List<String> standardPlateLetters = [
+    'أ', 'ب', 'ح', 'د', 'ر', 'س', 'ص', 'ط', 'ع', 'ق', 'ك', 'ل', 'م', 'ن', 'هـ', 'و', 'ى'
+  ];
+
+  // قاموس المخارج الصوتية والبدائل التنبؤية للحروف
+  static final Map<String, String> _phoneticLetterMap = {
+    'الف': 'أ', 'ألف': 'أ', 'ا': 'أ', 'همزه': 'أ', 'همزة': 'أ', 'آ': 'أ', 'إ': 'أ',
+    'با': 'ب', 'باء': 'ب', 'بي': 'ب', 'ب': 'ب',
+    'حا': 'ح', 'حاء': 'ح', 'حي': 'ح', 'ح': 'ح',
+    'دا': 'د', 'دال': 'د', 'دي': 'د', 'د': 'د',
+    'را': 'ر', 'راء': 'ر', 'ري': 'ر', 'ر': 'ر',
+    'سا': 'س', 'سين': 'س', 'سي': 'س', 'س': 'س',
+    'صا': 'ص', 'صاد': 'ص', 'صي': 'ص', 'ص': 'ص',
+    'طا': 'ط', 'طاء': 'ط', 'طي': 'ط', 'ط': 'ط',
+    'عا': 'ع', 'عين': 'ع', 'عي': 'ع', 'ع': 'ع',
+    'قا': 'ق', 'قاف': 'ق', 'قي': 'ق', 'ق': 'ق', 'كاف': 'ك',
+    'كا': 'ك', 'ك': 'ك',
+    'لا': 'ل', 'لام': 'ل', 'لي': 'ل', 'ل': 'ل',
+    'ما': 'م', 'ميم': 'م', 'مي': 'م', 'م': 'م',
+    'نا': 'ن', 'نون': 'ن', 'ني': 'ن', 'ن': 'ن',
+    'ها': 'هـ', 'هاء': 'هـ', 'هي': 'هـ', 'ه': 'هـ', 'هـ': 'هـ',
+    'وا': 'و', 'واو': 'و', 'وي': 'و', 'و': 'و',
+    'يا': 'ى', 'ياء': 'ى', 'ي': 'ى', 'ى': 'ى',
+  };
+
+  // قاموس الموديلات والأنواع الميدانية للرصد
+  static final List<String> _carTypes = [
+    'كامري', 'كورولا', 'هايلوكس', 'شاص', 'لاندكروزر', 'برادو', 'فورتشنر', 'يارس', 'راف فور', 'افالون', 'انوفا', 'اف جي',
+    'النترا', 'أكسنت', 'اكسنت', 'سوناتا', 'ازيرا', 'توسان', 'سنتافي', 'كريتا', 'سبورتاج', 'اوبتما', 'كادينزا', 'سيراتو', 'بيجاس', 'سورينتو', 'تيلورايد', 'ك5',
+    'صني', 'التيما', 'ماكسيما', 'باترول', 'ددسن', 'نافارا', 'اكستيرا', 'كيكس', 'باثفايندر',
+    'توروس', 'اكسبلورر', 'تاهو', 'يوكن', 'سييرا', 'سلفرادو', 'كابرس', 'لومينا', 'ماليبو', 'امبالا',
+    'هافال', 'شانجان', 'ام جي', 'جيلي', 'شيري', 'جيتور',
+    'دينا', 'باص', 'نقل', 'وايت', 'سطحة', 'تريلا', 'قلاب', 'وانيت', 'ملاكي', 'جيب', 'لكزس'
+  ];
+
+  // أرقام النطق العامية
+  static final Map<String, String> _spokenNumbers = {
+    'صفر': '0', 'زيرو': '0', 'واحد': '1', 'واحده': '1',
+    'اثنين': '2', 'اتنين': '2', 'تنين': '2',
+    'ثلاثة': '3', 'تلاتة': '3', 'تلاته': '3', 'ثلاثه': '3',
+    'اربعة': '4', 'أربعة': '4', 'اربعه': '4', 'أربعه': '4',
+    'خمسة': '5', 'خمسه': '5', 'ستة': '6', 'سته': '6',
+    'سبعة': '7', 'سبعه': '7', 'ثمانية': '8', 'تمانية': '8', 'ثمانيه': '8', 'تمانيه': '8',
+    'تسعة': '9', 'تسعه': '9', 'عشرة': '10', 'عشره': '10',
+    'حداشر': '11', 'احداعش': '11', 'اتناشر': '12', 'اطنعش': '12',
+    'تلاتاشر': '13', 'اربعتاشر': '14', 'خمستاشر': '15', 'ستاشر': '16',
+    'سبعتاشر': '17', 'تمنتاشر': '18', 'تسعتاشر': '19',
+    'عشرين': '20', 'ثلاثين': '30', 'تلاتين': '30', 'اربعين': '40', 'خمسين': '50',
+    'ستين': '60', 'سبعين': '70', 'ثمانين': '80', 'تمانين': '80', 'تسعين': '90',
+    'مية': '100', 'ميه': '100', 'ميتين': '200', 'خمسمية': '500', 'سبعمية': '700', 'تسعمية': '900', 'الف': '1000'
+  };
+
+  // ==========================================
+  // خوارزمية الذكاء الاصطناعي لقياس التقارب اللغوي (Levenshtein Distance)
+  // ==========================================
+  static int _computeLevenshteinDistance(String s1, String s2) {
+    if (s1 == s2) return 0;
+    if (s1.isEmpty) return s2.length;
+    if (s2.isEmpty) return s1.length;
+
+    List<int> v0 = List<int>.filled(s2.length + 1, 0);
+    List<int> v1 = List<int>.filled(s2.length + 1, 0);
+
+    for (int i = 0; i <= s2.length; i++) {
+      v0[i] = i;
+    }
+
+    for (int i = 0; i < s1.length; i++) {
+      v1[0] = i + 1;
+      for (int j = 0; j < s2.length; j++) {
+        int cost = (s1.codeUnitAt(i) == s2.codeUnitAt(j)) ? 0 : 1;
+        v1[j + 1] = min(v1[j] + 1, min(v0[j + 1] + 1, v0[j] + cost));
+      }
+      for (int j = 0; j <= s2.length; j++) {
+        v0[j] = v1[j];
+      }
+    }
+    return v1[s2.length];
+  }
+
+  // مطابقة ذكية للكلمة مع الحرف الأقرب صوتياً بدقة احتمالية
+  static String? _predictClosestLetter(String rawWord) {
+    String clean = normalizeFlexible(rawWord);
+    if (_phoneticLetterMap.containsKey(clean)) {
+      return _phoneticLetterMap[clean];
+    }
+
+    // إذا كانت الكلمة حرفاً واحداً صحيحاً
+    if (clean.length == 1 && standardPlateLetters.contains(clean)) {
+      return clean;
+    }
+
+    // مطابقة ذكية مع قاموس الحروف
+    String? bestMatch;
+    int minDistance = 999;
+    for (var entry in _phoneticLetterMap.entries) {
+      int dist = _computeLevenshteinDistance(clean, entry.key);
+      if (dist < minDistance && dist <= 1) { // سماح بـ 1 خطأ إملائي من محرك جوجل
+        minDistance = dist;
+        bestMatch = entry.value;
+      }
+    }
+    return bestMatch;
+  }
+
+  // مطابقة ذكية لماركة السيارة حتى لو التقطها جوجل بلكنة مختلفة
+  static String? extractVehicleType(String text) {
+    String clean = normalizeFlexible(text);
+    for (String car in _carTypes) {
+      if (clean.contains(normalizeFlexible(car))) {
+        return car;
+      }
+    }
+    // فحص تقارب ذكي للكلمات المنفردة
+    List<String> tokens = clean.split(' ');
+    for (String token in tokens) {
+      if (token.length < 3) continue;
+      for (String car in _carTypes) {
+        int dist = _computeLevenshteinDistance(token, normalizeFlexible(car));
+        if (dist <= 1) {
+          return car;
+        }
+      }
+    }
+    return null;
+  }
 
   static Future<void> loadLearnedDictionary() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final String? saved = prefs.getString('rased_user_learned_v8');
-      if (saved != null && saved.isNotEmpty) {
-        userLearnedMap = json.decode(saved);
-      }
-      final String? savedWords = prefs.getString('rased_user_words_v8');
-      if (savedWords != null && savedWords.isNotEmpty) {
-        Map<String, dynamic> dec = json.decode(savedWords);
-        userWordMap = dec.map((k, v) => MapEntry(k.toString(), v.toString()));
+      final String? jsonStr = prefs.getString('rased_ai_learned_voice');
+      if (jsonStr != null && jsonStr.isNotEmpty) {
+        Map<String, dynamic> decoded = json.decode(jsonStr);
+        _learnedMappings = decoded.map((k, v) => MapEntry(k, Map<String, String>.from(v)));
       }
     } catch (_) {}
   }
 
-  static Future<void> saveLearnedMapping(
-    String rawSpoken,
-    String correctLetters,
-    String correctDigits,
-    String correctType, {
-    String? wrongSingleWord,
-    String? targetSingleFix,
-  }) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    String cleanSpoken = normalizeFlexible(rawSpoken);
-    if (cleanSpoken.isNotEmpty) {
-      userLearnedMap[cleanSpoken] = {
-        'letters': correctLetters.trim(),
-        'digits': correctDigits.trim(),
-        'type': correctType.trim(),
+  static Future<void> saveLearnedMapping(String spoken, String letters, String digits, String type) async {
+    try {
+      String cleanSpoken = normalizeFlexible(spoken);
+      if (cleanSpoken.isEmpty) return;
+      _learnedMappings[cleanSpoken] = {
+        'letters': letters,
+        'digits': digits,
+        'type': type,
       };
-      await prefs.setString('rased_user_learned_v8', json.encode(userLearnedMap));
-    }
-
-    if (wrongSingleWord != null && wrongSingleWord.trim().isNotEmpty && targetSingleFix != null && targetSingleFix.trim().isNotEmpty) {
-      userWordMap[wrongSingleWord.trim()] = targetSingleFix.trim();
-      await prefs.setString('rased_user_words_v8', json.encode(userWordMap));
-    }
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('rased_ai_learned_voice', json.encode(_learnedMappings));
+    } catch (_) {}
   }
 
-  static final Map<String, String> lettersMap = {
-    'الف': 'أ', 'ألف': 'أ', 'إلف': 'أ', 'ا': 'أ', 'أ': 'أ', 'إ': 'أ', 'آ': 'أ',
-    'باء': 'ب', 'به': 'ب', 'بة': 'ب', 'با': 'ب', 'بي': 'ب', 'ب': 'ب',
-    'تاء': 'ت', 'ته': 'ت', 'تا': 'ت', 'ت': 'ت',
-    'ثاء': 'ث', 'ثه': 'ث', 'ثا': 'ث', 'ث': 'ث',
-    'جيم': 'ج', 'جه': 'ج', 'جا': 'ج', 'ج': 'ج',
-    'حاء': 'ح', 'حه': 'ح', 'حة': 'ح', 'حا': 'ح', 'ح': 'ح',
-    'خاء': 'خ', 'خه': 'خ', 'خا': 'خ', 'خ': 'خ',
-    'دال': 'د', 'ده': 'د', 'دا': 'د', 'د': 'د',
-    'ذال': 'ذ', 'ذه': 'ذ', 'ذا': 'ذ', 'ذ': 'ذ',
-    'راء': 'ر', 'ره': 'ر', 'رة': 'ر', 'را': 'ر', 'ر': 'ر',
-    'زين': 'ز', 'زه': 'ز', 'زا': 'ز', 'زاي': 'ز', 'ز': 'ز',
-    'سين': 'س', 'سه': 'س', 'سا': 'س', 'س': 'س',
-    'شين': 'ش', 'شه': 'ش', 'شا': 'ش', 'ش': 'ش',
-    'صاد': 'ص', 'صاه': 'ص', 'صه': 'ص', 'صا': 'ص', 'ص': 'ص',
-    'ضاد': 'ض', 'ضه': 'ض', 'ضا': 'ض', 'ض': 'ض',
-    'طاء': 'ط', 'طه': 'ط', 'طا': 'ط', 'ط': 'ط',
-    'ظاء': 'ظ', 'ظه': 'ظ', 'ظا': 'ظ', 'ظ': 'ظ',
-    'عين': 'ع', 'عه': 'ع', 'عا': 'ع', 'عن': 'ع', 'ع': 'ع',
-    'غين': 'غ', 'غه': 'غ', 'غا': 'غ', 'غ': 'غ',
-    'فاء': 'ف', 'فه': 'ف', 'فة': 'ف', 'فا': 'ف', 'ف': 'ف',
-    'قاف': 'q', 'قه': 'q', 'قا': 'q', 'ق': 'q', 'كاف': 'ك', 'كه': 'ك', 'كا': 'ك', 'ك': 'ك',
-    'لام': 'ل', 'له': 'ل', 'لا': 'ل', 'ل': 'ل',
-    'ميم': 'م', 'مه': 'م', 'ما': 'م', 'م': 'م',
-    'نون': 'ن', 'نه': 'ن', 'نا': 'ن', 'ن': 'ن',
-    'هاء': 'ه', 'هه': 'ه', 'ها': 'ه', 'ه': 'ه',
-    'واو': 'و', 'وه': 'و', 'وا': 'و', 'و': 'و',
-    'ياء': 'ي', 'يه': 'ي', 'ية': 'ي', 'يا': 'ي', 'ى': 'ي', 'ي': 'ي',
-  };
-
-  static final Map<String, List<String>> compounds = {
-    'واويه': ['و', 'ي'], 'واوية': ['و', 'ي'], 'واوياء': ['و', 'ي'],
-    'واودال': ['و', 'د'], 'واوقاف': ['و', 'q'], 'أوقاف': ['و', 'q'],
-    'اوصاد': ['أ', 'و', 'ص'], 'أوصاد': ['أ', 'و', 'ص'],
-    'راهدال': ['ر', 'د'], 'رادال': ['ر', 'د'], 'رهدال': ['ر', 'د'],
-    'عينرا': ['ع', 'ر'], 'عينره': ['ع', 'ر'],
-    'الفنون': ['أ', 'ن'], 'ألفنون': ['أ', 'ن'],
-    'بهلام': ['ب', 'ل'], 'بالام': ['ب', 'ل'], 'بلام': ['ب', 'ل'],
-    'نونواو': ['ن', 'و'], 'نونواوه': ['ن', 'و', 'ي'],
-    'يهبه': ['ي', 'ب'], 'يهدال': ['ي', 'د'],
-    'نوعين': ['ن', 'ع'], 'نهاء': ['ن', 'ه'],
-  };
-
-  static final Map<String, String> digitsMap = {
-    'صفر': '0', 'صِفر': '0', 'زيرو': '0', 'واحد': '1', 'واحده': '1', 'واحدة': '1', 'وحد': '1',
-    'اتنين': '2', 'اثنين': '2', 'إثنين': '2', 'تنين': '2', 'اثنان': '2', 'اتنان': '2',
-    'تلاته': '3', 'ثلاثة': '3', 'تلات': '3', 'تلاتة': '3', 'ثلاثه': '3', 'ثلاث': '3',
-    'اربعة': '4', 'اربعه': '4', 'أربعة': '4', 'أربعه': '4', 'اربع': '4', 'أربع': '4',
-    'خمسه': '5', 'خمسة': '5', 'خمس': '5', 'سته': '6', 'ستة': '6', 'ست': '6',
-    'سبعه': '7', 'سبعة': '7', 'سبع': '7', 'تمانيه': '8', 'ثمانية': '8', 'ثمانيه': '8', 'تمانية': '8', 'تمن': '8',
-    'تسعه': '9', 'تسعة': '9', 'تسع': '9',
-  };
-
-  static final Map<String, List<String>> vehicleTypesMap = {
-    'نقل عام': ['نقل عام', 'نقلي عام'], 'جراند ماكس': ['جراند ماكس', 'قراند ماكس', 'جراند مكس', 'جراند', 'قراند'],
-    'تلاجة كبيرة': ['تلاجة كبيرة', 'تلاجه كبيره', 'ثلاجة كبيرة', 'ثلاجه كبيره', 'تلاجه', 'ثلاجة'],
-    'هاي اس': ['هاي اس', 'هايس', 'هاي آيس', 'هايسن', 'هاي ايس', 'هاي إس'], 'فان': ['فان', 'فن', 'بان'],
-    'نقل': ['نقل', 'ناقل'], 'بيك اب': ['بيك اب', 'بيك آب', 'بيكب', 'دباب'],
-    'اتوبيس': ['اتوبيس', 'أتوبيس', 'باص', 'ميكروباص'], 'تويوتا': ['تويوتا', 'تيوتا', 'تايوتا'],
-    'نيسان': ['نيسان', 'نسان'], 'مازدا': ['مازدا', 'مزدا'], 'هوندا': ['هوندا', 'هندا'],
-    'لكزس': ['لكزس', 'لكزيس', 'لكسز'], 'سوزوكي': ['سوزوكي', 'سزوكي'],
-    'هيونداي': ['هيونداي', 'هونداي', 'هينداي'], 'كيا': ['كيا'], 'جينيسيس': ['جينيسيس', 'جنسس', 'جينسس'],
-    'فورد': ['فورد'], 'شيفروليه': ['شيفروليه', 'شفروليه', 'شفر'], 'جي إم سي': ['جي إم سي', 'جي ام سي', 'جيمس', 'جمس'],
-    'كاديلاك': ['كاديلاك', 'كديلاك'], 'رام': ['رام'], 'هافال': ['هافال'], 'شانجان': ['شانجان', 'شنجان'],
-    'جيلي': ['جيلي', 'جلي'], 'جيتور': ['جيتور'], 'إم جي': ['إم جي', 'ام جي', 'امجي'], 'شيري': ['شيري', 'شري'],
-    'بي واي دي': ['بي واي دي', 'بي وايدي'], 'مرسيدس-بنز': ['مرسيدس بنز', 'مرسيدس-بنز', 'مرسيدس', 'بنز'],
-    'بي إم دبليو': ['بي إم دبليو', 'بي ام دبليو', 'بي ام'], 'أودي': ['أودي', 'اودي'],
-    'فولكس فاجن': ['فولكس فاجن', 'فولكس واجن', 'فولكس'], 'لاند روفر': ['لاند روفر', 'لاندروفر', 'رنج روفر'],
-    'بورش': ['بورش', 'بورشه'], 'ملاكي': ['ملاكي', 'خصوصي'],
-  };
-
-  static String? extractVehicleType(String text) {
-    String clean = text.trim();
-    if (clean.isEmpty) return null;
-    for (var entry in userWordMap.entries) {
-      if (vehicleTypesMap.containsKey(entry.value) && clean.contains(entry.key)) return entry.value;
-    }
-    for (var entry in vehicleTypesMap.entries) {
-      for (String synonym in entry.value) {
-        if (clean.contains(synonym)) return entry.key;
-      }
-    }
-    return null;
+  static String normalizeFlexible(String text) {
+    return text
+        .replaceAll('أ', 'ا')
+        .replaceAll('إ', 'ا')
+        .replaceAll('آ', 'ا')
+        .replaceAll('ة', 'ه')
+        .replaceAll('ى', 'ي')
+        .replaceAll(RegExp(r'[^\w\s\u0621-\u064A]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim()
+        .toLowerCase();
   }
 
-  static Map<String, dynamic>? parsePlateAndType(String activeSegment, {bool isFinalResult = false}) {
-    if (activeSegment.trim().isEmpty) return null;
+  static String normalizeDigits(String text) {
+    const arabicDigits = '٠١٢٣٤٥٦٧٨٩';
+    const englishDigits = '0123456789';
+    for (int i = 0; i < arabicDigits.length; i++) {
+      text = text.replaceAll(arabicDigits[i], englishDigits[i]);
+    }
+    return text;
+  }
 
-    String normalizedVoice = normalizeFlexible(activeSegment);
-    if (userLearnedMap.containsKey(normalizedVoice)) {
-      var learned = userLearnedMap[normalizedVoice];
+  static String convertSpokenWordsToNumbers(String text) {
+    String output = text;
+    _spokenNumbers.forEach((word, digit) {
+      output = output.replaceAll(RegExp('\\b$word\\b'), digit);
+    });
+    return output;
+  }
+
+  // ==========================================
+  // المحرك التحليلي للوحة ومطابقتها اللحظية
+  // ==========================================
+  static Map<String, dynamic>? parsePlateAndType(String spokenText, {bool isFinalResult = false}) {
+    String cleanText = normalizeFlexible(spokenText);
+
+    // 1. استرجاع سريع من قاعدة البيانات العصبية التراكمية إذا تم تدريبها سابقاً
+    if (_learnedMappings.containsKey(cleanText)) {
+      var item = _learnedMappings[cleanText]!;
       return {
-        'letters': learned['letters'],
-        'digits': learned['digits'],
-        'type': learned['type'] ?? '-',
-        'hasExplicitType': (learned['type'] ?? '-') != '-',
-        'startsWithAlefOrBaa': false,
+        'letters': item['letters']!,
+        'digits': item['digits']!,
+        'type': item['type']!,
+        'hasExplicitType': item['type'] != '-',
+        'startsWithAlefOrBaa': item['letters']!.startsWith('أ') || item['letters']!.startsWith('ب'),
       };
     }
 
-    String normalized = normalizeDigits(activeSegment);
-    String? detectedType = extractVehicleType(normalized);
+    // 2. استخراج النوع بالذكاء اللغوي
+    String detectedType = extractVehicleType(spokenText) ?? '-';
 
-    String textForPlate = normalized;
-    if (detectedType != null && vehicleTypesMap.containsKey(detectedType)) {
-      for (String syn in vehicleTypesMap[detectedType]!) textForPlate = textForPlate.replaceAll(syn, ' ');
+    // 3. تحويل واستخراج الأرقام
+    String textWithConvertedNumbers = convertSpokenWordsToNumbers(spokenText);
+    String normalizedAllDigits = normalizeDigits(textWithConvertedNumbers);
+
+    RegExp digitRegex = RegExp(r'\d{1,4}');
+    Iterable<Match> digitMatches = digitRegex.allMatches(normalizedAllDigits);
+    String extractedDigits = '';
+    if (digitMatches.isNotEmpty) {
+      for (var m in digitMatches) {
+        String matchStr = m.group(0)!;
+        if (matchStr.length > extractedDigits.length) {
+          extractedDigits = matchStr;
+        }
+      }
     }
 
-    compounds.forEach((k, v) => textForPlate = textForPlate.replaceAll(k, ' ${v.join(' ')} '));
-    List<String> rawTokens = textForPlate.split(RegExp(r'\s+'));
-    List<String> stream = [];
+    // 4. استخراج الحروف عبر الذكاء الاحتمالي (Phonetic Probability)
+    List<String> words = spokenText.split(RegExp(r'\s+'));
+    List<String> matchedLetters = [];
 
-    for (String token in rawTokens) {
-      String w = token.replaceAll(RegExp(r'[^\u0621-\u064A0-9a-zA-Z]'), '');
-      if (w.isEmpty) continue;
+    for (String word in words) {
+      String cleanWord = word.replaceAll(RegExp(r'[^\u0621-\u064A]'), '').trim();
+      if (cleanWord.isEmpty) continue;
 
-      if (userWordMap.containsKey(w)) {
-        String fixed = userWordMap[w]!;
-        if (RegExp(r'^\d+$').hasMatch(fixed)) {
-          for (int i = 0; i < fixed.length; i++) stream.add(fixed[i]);
-          continue;
-        } else if (lettersMap.containsKey(fixed)) {
-          stream.add(lettersMap[fixed]!);
-          continue;
-        } else if (fixed.length == 1) {
-          stream.add(fixed);
-          continue;
+      String? predicted = _predictClosestLetter(cleanWord);
+      if (predicted != null) {
+        matchedLetters.add(predicted);
+      } else if (cleanWord.length <= 3) {
+        // تفكيك الحروف الملتصقة إن وجدت
+        for (var char in cleanWord.split('')) {
+          String? subPredicted = _predictClosestLetter(char);
+          if (subPredicted != null) matchedLetters.add(subPredicted);
         }
       }
 
-      if (digitsMap.containsKey(w)) {
-        stream.add(digitsMap[w]!);
-      } else if (RegExp(r'^\d+$').hasMatch(w)) {
-        for (int i = 0; i < w.length; i++) stream.add(w[i]);
-      } else if (lettersMap.containsKey(w)) {
-        stream.add(lettersMap[w]!);
-      } else if (w.length == 1 && RegExp(r'[\u0621-\u064Aa-zA-Z]').hasMatch(w)) {
-        stream.add(w);
-      }
+      if (matchedLetters.length == 3) break;
     }
 
-    for (int i = stream.length - 1; i >= 0; i--) {
-      if (RegExp(r'^\d$').hasMatch(stream[i])) {
-        int dEnd = i;
-        int dStart = i;
-        while (dStart - 1 >= 0 && RegExp(r'^\d$').hasMatch(stream[dStart - 1])) dStart--;
+    if (matchedLetters.isNotEmpty && extractedDigits.isNotEmpty && extractedDigits.length >= 2) {
+      String formattedLetters = matchedLetters.take(3).join(' ');
+      bool startsWithAlefOrBaa = formattedLetters.startsWith('أ') || formattedLetters.startsWith('ب');
 
-        int numDigits = dEnd - dStart + 1;
-        int minRequiredDigits = isFinalResult ? 3 : 4;
-
-        if (numDigits >= minRequiredDigits) {
-          String digitsStr = stream.sublist(dStart, dStart + (numDigits > 4 ? 4 : numDigits)).join('');
-          List<String> lettersFound = [];
-          for (int j = dStart - 1; j >= 0 && lettersFound.length < 3; j--) {
-            if (RegExp(r'^[a-zA-Z\u0621-\u064A]$').hasMatch(stream[j])) {
-              String l = stream[j];
-              lettersFound.insert(0, l == 'q' ? 'ق' : l);
-            } else break;
-          }
-
-          int minRequiredLetters = isFinalResult ? 2 : 3;
-          if (lettersFound.length >= minRequiredLetters) {
-            String firstL = lettersFound.first;
-            bool startsWithAorB = (firstL == 'أ' || firstL == 'ا' || firstL == 'إ' || firstL == 'ب');
-            return {
-              'letters': lettersFound.join(' '),
-              'digits': digitsStr,
-              'type': detectedType ?? '-',
-              'hasExplicitType': detectedType != null,
-              'startsWithAlefOrBaa': startsWithAorB,
-            };
-          }
-        }
-        i = dStart;
-      }
+      return {
+        'letters': formattedLetters,
+        'digits': extractedDigits,
+        'type': detectedType,
+        'hasExplicitType': detectedType != '-',
+        'startsWithAlefOrBaa': startsWithAlefOrBaa,
+      };
     }
+
     return null;
-  }
-
-  static String normalizeDigits(String input) {
-    const ar = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-    const en = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-    for (int i = 0; i < ar.length; i++) input = input.replaceAll(ar[i], en[i]);
-    return input;
-  }
-
-  static String normalizeFlexible(String input) {
-    String res = normalizeDigits(input.trim());
-    res = res.replaceAll(RegExp(r'[أإآا]'), 'ا');
-    res = res.replaceAll(RegExp(r'[يى]'), 'ي');
-    res = res.replaceAll(RegExp(r'[ةه]'), 'ه');
-    res = res.replaceAll(RegExp(r'\s+'), '');
-    return res;
   }
 }

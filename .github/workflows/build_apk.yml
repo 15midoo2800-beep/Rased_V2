@@ -32,12 +32,12 @@ jobs:
 
       - name: Patch Android Config & AGP Flags
         run: |
-          # 1. إيقاف newDsl المتسبب في تحذير AGP 9+
+          # 1. إيقاف newDsl المتسبب في أخطاء AGP
           echo "android.newDsl=false" >> android/gradle.properties
           echo "android.useAndroidX=true" >> android/gradle.properties
           echo "android.enableJetifier=true" >> android/gradle.properties
 
-          # 2. ضبط minSdkVersion ليكون 24 على الأقل لدعم NDK و Isar
+          # 2. ضبط minSdkVersion ليكون 24 لدعم Isar و NDK
           if [ -f android/app/build.gradle ]; then
             sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/g' android/app/build.gradle
             sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/g' android/app/build.gradle
@@ -46,11 +46,11 @@ jobs:
             sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/g' android/app/build.gradle.kts
           fi
 
-          # 3. حقن الصلاحيات وخدمة الخلفية في AndroidManifest
+          # 3. الصلاحيات وخدمة الخلفية
           sed -i '/<application/i \    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<\/application>/i \        <service android:name="id.flutter.flutter_background_service.BackgroundService" android:foregroundServiceType="microphone|location" />' android/app/src/main/AndroidManifest.xml
 
-          # 4. حل مشكلة Namespace التلقائي لمكتبة isar_flutter_libs وغيرها
+          # 4. معالجة الـ namespace التلقائي لحزم المكتبات القديمة
           cat << 'EOF' >> android/build.gradle
 
           subprojects {
@@ -69,7 +69,6 @@ jobs:
 
       - name: Fix Deprecated Repositories in Pub Cache
         run: |
-          # استبدال jcenter بـ mavenCentral لتمكين تنزيل ملفات البناء المفقودة
           find /home/runner/.pub-cache -name "build.gradle" -exec sed -i 's/jcenter()/mavenCentral()/g' {} + || true
 
       - name: Generate Isar Database Files

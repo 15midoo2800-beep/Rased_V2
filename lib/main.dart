@@ -23,25 +23,27 @@ import 'models/wanted_car.dart';
 import 'services/speech_engine.dart';
 
 // ==========================================
-// 1. إعداد خدمة الخلفية (Background Service)
+// 1. إعداد خدمة الخلفية
 // ==========================================
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
-  DartPluginRegistrant.ensureInitialized();
-  if (service is AndroidServiceInstance) {
-    service.on('setAsForeground').listen((event) => service.setAsForegroundService());
-    service.on('setAsBackground').listen((event) => service.setAsBackgroundService());
-  }
-  service.on('stopService').listen((event) => service.stopSelf());
-
-  Timer.periodic(const Duration(seconds: 1), (timer) async {
-    if (service is AndroidServiceInstance && await service.isForegroundService()) {
-      service.setForegroundNotificationInfo(
-        title: "RASED Offline Service",
-        content: "محرك الرصد الفوري يعمل في الخلفية...",
-      );
+  try {
+    DartPluginRegistrant.ensureInitialized();
+    if (service is AndroidServiceInstance) {
+      service.on('setAsForeground').listen((event) => service.setAsForegroundService());
+      service.on('setAsBackground').listen((event) => service.setAsBackgroundService());
     }
-  });
+    service.on('stopService').listen((event) => service.stopSelf());
+
+    Timer.periodic(const Duration(seconds: 2), (timer) async {
+      if (service is AndroidServiceInstance && await service.isForegroundService()) {
+        service.setForegroundNotificationInfo(
+          title: "RASED Service",
+          content: "محرك الرصد الفوري يعمل...",
+        );
+      }
+    });
+  } catch (_) {}
 }
 
 Future<void> initializeBackgroundService() async {
@@ -50,7 +52,7 @@ Future<void> initializeBackgroundService() async {
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       'rased_foreground',
       'RASED Service',
-      description: 'يستخدم لتشغيل الرصد في الخلفية',
+      description: 'خدمة الرصد في الخلفية',
       importance: Importance.low,
     );
     final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
@@ -65,7 +67,7 @@ Future<void> initializeBackgroundService() async {
         isForegroundMode: false,
         notificationChannelId: 'rased_foreground',
         initialNotificationTitle: 'RASED Service',
-        initialNotificationContent: 'Initializing',
+        initialNotificationContent: 'Ready',
         foregroundServiceNotificationId: 888,
       ),
       iosConfiguration: IosConfiguration(
@@ -75,7 +77,7 @@ Future<void> initializeBackgroundService() async {
       ),
     );
   } catch (e) {
-    debugPrint("Background service init error: $e");
+    debugPrint("Background Service Init: $e");
   }
 }
 
@@ -218,7 +220,7 @@ class RasedLicenseManager {
 }
 
 // ==========================================
-// 3. نصوص التطبيق واللغة
+// 3. نصوص التطبيق
 // ==========================================
 class AppStrings {
   static bool isAr = true;
@@ -480,7 +482,7 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> with Wi
 }
 
 // ==========================================
-// 5. الواجهة الرئيسية ومنطق الرصد
+// 5. الواجهة الرئيسية
 // ==========================================
 class SheekhaHomeScreen extends StatefulWidget {
   final Function(Locale) onLanguageChange;

@@ -45,33 +45,42 @@ void onStart(ServiceInstance service) async {
 }
 
 Future<void> initializeBackgroundService() async {
-  final service = FlutterBackgroundService();
-  const AndroidNotificationChannel channel = AndroidNotificationChannel(
-    'rased_foreground',
-    'RASED Service',
-    description: 'يستخدم لتشغيل الرصد في الخلفية',
-    importance: Importance.high,
-  );
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-  await flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.createNotificationChannel(channel);
+  try {
+    final service = FlutterBackgroundService();
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'rased_foreground',
+      'RASED Service',
+      description: 'يستخدم لتشغيل الرصد في الخلفية',
+      importance: Importance.low,
+    );
+    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
 
-  await service.configure(
-    androidConfiguration: AndroidConfiguration(
-      onStart: onStart,
-      autoStart: false,
-      isForegroundMode: true,
-      notificationChannelId: 'rased_foreground',
-      initialNotificationTitle: 'RASED Service',
-      initialNotificationContent: 'Initializing',
-      foregroundServiceNotificationId: 888,
-    ),
-    iosConfiguration: IosConfiguration(autoStart: false, onForeground: onStart, onBackground: (ServiceInstance service) => true),
-  );
+    await service.configure(
+      androidConfiguration: AndroidConfiguration(
+        onStart: onStart,
+        autoStart: false,
+        isForegroundMode: false,
+        notificationChannelId: 'rased_foreground',
+        initialNotificationTitle: 'RASED Service',
+        initialNotificationContent: 'Initializing',
+        foregroundServiceNotificationId: 888,
+      ),
+      iosConfiguration: IosConfiguration(
+        autoStart: false,
+        onForeground: onStart,
+        onBackground: (ServiceInstance service) => true,
+      ),
+    );
+  } catch (e) {
+    debugPrint("Background service init error: $e");
+  }
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeBackgroundService();
   runApp(const MyApp());
 }
 
@@ -522,9 +531,13 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
   }
 
   Future<void> _initIsarDatabase() async {
-    final dir = await getApplicationDocumentsDirectory();
-    isar = await Isar.open([WantedCarSchema], directory: dir.path);
-    setState(() => _isIsarReady = true);
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      isar = await Isar.open([WantedCarSchema], directory: dir.path);
+      if (mounted) setState(() => _isIsarReady = true);
+    } catch (e) {
+      debugPrint("Isar open error: $e");
+    }
   }
 
   @override
@@ -534,9 +547,9 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
   }
 
   Future<void> _initEngine() async {
-    var micStatus = await Permission.microphone.request();
-    if (!micStatus.isGranted) return;
     try {
+      var micStatus = await Permission.microphone.request();
+      if (!micStatus.isGranted) return;
       bool available = await _speech.initialize(
         onStatus: (status) {
           if ((status == 'done' || status == 'notListening') && _isListening && mounted) _restartListeningSafely();
@@ -545,7 +558,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
           if (_isListening && mounted) _restartListeningSafely();
         },
       );
-      setState(() => _speechEnabled = available);
+      if (mounted) setState(() => _speechEnabled = available);
     } catch (_) {}
   }
 
@@ -557,6 +570,10 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
   }
 
   void _toggleLiveListening() async {
+    try {
+      await initializeBackgroundService();
+    } catch (_) {}
+    
     final service = FlutterBackgroundService();
     if (_isListening) {
       _commitPendingPlate();
@@ -573,7 +590,9 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
         await _initEngine();
         if (!_speechEnabled) return;
       }
-      await service.startService();
+      try {
+        await service.startService();
+      } catch (_) {}
       setState(() {
         _isListening = true;
         _currentStatusText = AppStrings.listeningNow;
@@ -699,14 +718,16 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
     WantedCar? match;
 
     if (_isIsarReady) {
-      final possibleMatches = await isar.wantedCars.filter().digitsEqualTo(cleanDigits).findAll();
-      for (var car in possibleMatches) {
-        String dbLetters = SheekhaFullEngine.normalizeFlexible(car.letters);
-        if (dbLetters.isEmpty || dbLetters == normalizedSearchLetters) {
-          match = car;
-          break;
+      try {
+        final possibleMatches = await isar.wantedCars.filter().digitsEqualTo(cleanDigits).findAll();
+        for (var car in possibleMatches) {
+          String dbLetters = SheekhaFullEngine.normalizeFlexible(car.letters);
+          if (dbLetters.isEmpty || dbLetters == normalizedSearchLetters) {
+            match = car;
+            break;
+          }
         }
-      }
+      } catch (_) {}
     }
 
     bool isWanted = match != null;
@@ -1092,14 +1113,16 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
     List<Map<String, String>> matched = [];
 
     if (_isIsarReady) {
-      final allWanted = await isar.wantedCars.where().findAll();
-      for (var car in allWanted) {
-        if (SheekhaFullEngine.normalizeFlexible('${car.letters}${car.digits} ${car.type} ${car.owner} ${car.shassis}').contains(normalizedQuery)) {
-          matched.add({
-            'id': 'مطلوبة', 'letters': car.letters, 'digits': car.digits, 'type': car.type, 'district': 'شيت المطلوبين', 'street': car.owner, 'coords': '', 'shassis': car.shassis, 'note': '⚠️ مسجلة في شيت المطلوبين', 'status': 'مطلوبة', 'time': 'قاعدة البيانات'
-          });
+      try {
+        final allWanted = await isar.wantedCars.where().findAll();
+        for (var car in allWanted) {
+          if (SheekhaFullEngine.normalizeFlexible('${car.letters}${car.digits} ${car.type} ${car.owner} ${car.shassis}').contains(normalizedQuery)) {
+            matched.add({
+              'id': 'مطلوبة', 'letters': car.letters, 'digits': car.digits, 'type': car.type, 'district': 'شيت المطلوبين', 'street': car.owner, 'coords': '', 'shassis': car.shassis, 'note': '⚠️ مسجلة في شيت المطلوبين', 'status': 'مطلوبة', 'time': 'قاعدة البيانات'
+            });
+          }
         }
-      }
+      } catch (_) {}
     }
 
     for (var car in _records) {
@@ -1110,13 +1133,15 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
 
     String cleanDigitsOnly = SheekhaFullEngine.normalizeDigits(query.replaceAll(RegExp(r'[^\d]'), ''));
     if (cleanDigitsOnly.length >= 3 && _isIsarReady) {
-      final exactMatches = await isar.wantedCars.filter().digitsEqualTo(cleanDigitsOnly).findAll();
-      for (var w in exactMatches) {
-        if (normalizedQuery.isEmpty || normalizedQuery.contains(SheekhaFullEngine.normalizeFlexible(w.letters))) {
-           _registerDetectedPlate(w.letters, w.digits, w.type);
-           break;
+      try {
+        final exactMatches = await isar.wantedCars.filter().digitsEqualTo(cleanDigitsOnly).findAll();
+        for (var w in exactMatches) {
+          if (normalizedQuery.isEmpty || normalizedQuery.contains(SheekhaFullEngine.normalizeFlexible(w.letters))) {
+             _registerDetectedPlate(w.letters, w.digits, w.type);
+             break;
+          }
         }
-      }
+      } catch (_) {}
     }
 
     setState(() {

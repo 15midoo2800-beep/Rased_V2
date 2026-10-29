@@ -39,11 +39,11 @@ jobs:
 
       - name: Deep Patch Android & Plugin Issues
         run: |
-          # 1. إعدادات التوافق في gradle.properties
+          # 1. إعدادات التوافق
           echo "android.useAndroidX=true" >> android/gradle.properties
           echo "android.enableJetifier=true" >> android/gradle.properties
 
-          # 2. ضبط compileSdkVersion إلى 34 و minSdkVersion إلى 24
+          # 2. ضبط إصدارات SDK
           if [ -f android/app/build.gradle ]; then
             sed -i 's/compileSdk .*/compileSdk 34/g' android/app/build.gradle
             sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' android/app/build.gradle
@@ -53,31 +53,17 @@ jobs:
             sed -i 's/targetSdkVersion .*/targetSdkVersion 34/g' android/app/build.gradle
           fi
 
-          # 3. حقن صلاحيات الأندرويد وخدمة الخلفية في AndroidManifest.xml
+          # 3. الصلاحيات وخدمة الخلفية
           sed -i '/<application/i \    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<\/application>/i \        <service android:name="id.flutter.flutter_background_service.BackgroundService" android:foregroundServiceType="microphone|location" android:exported="true" />' android/app/src/main/AndroidManifest.xml
 
-          # 4. إصلاح مشكلة Namespace و compileSdkVersion 34 لجميع الحزم (بما فيها Isar)
-          cat << 'EOF' >> android/build.gradle
+          # 4. إصلاح namespace في مكتبة isar_flutter_libs مباشرة في الكاش
+          find /home/runner/.pub-cache -path "*/isar_flutter_libs-*/android/build.gradle" -exec sed -i '/android {/a \    namespace "dev.isar.isar_flutter_libs"' {} + || true
 
-          subprojects {
-              afterEvaluate { project ->
-                  if (project.hasProperty("android")) {
-                      project.android {
-                          compileSdkVersion 34
-                          if (namespace == null) {
-                              namespace = project.group ?: "com.example.${project.name.replace('-', '_')}"
-                          }
-                      }
-                  }
-              }
-          }
-          EOF
-
-          # 5. استبدال jcenter() المهمل بـ mavenCentral() في جميع الحزم
+          # 5. استبدال jcenter بـ mavenCentral
           find /home/runner/.pub-cache -name "build.gradle" -exec sed -i 's/jcenter()/mavenCentral()/g' {} + || true
 
-          # 6. إصلاح خطأ bigLargeIcon(null) في حزمة الإشعارات إن وجد
+          # 6. إصلاح خطأ الإشعارات
           find /home/runner/.pub-cache -name "FlutterLocalNotificationsPlugin.java" -exec sed -i 's/bigPictureStyle.bigLargeIcon(null);/bigPictureStyle.bigLargeIcon((android.graphics.Bitmap) null);/g' {} + || true
 
       - name: Build Release APK

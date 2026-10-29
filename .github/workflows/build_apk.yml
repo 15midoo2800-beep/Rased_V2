@@ -37,11 +37,11 @@ jobs:
           android.enableJetifier=true
           EOF
 
-          # 2. إنشاء local.properties بمسار Flutter SDK
+          # 2. إنشاء local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
           echo "sdk.dir=$ANDROID_HOME" >> android/local.properties
 
-          # 3. ملف settings.gradle الكلاسيكي المتوافق
+          # 3. ملف settings.gradle الكلاسيكي
           cat << 'EOF' > android/settings.gradle
           include ':app'
 
@@ -101,7 +101,7 @@ jobs:
           }
           EOF
 
-          # 5. ملف android/app/build.gradle الكلاسيكي (بدون إضافة flutter المفقودة)
+          # 5. ملف android/app/build.gradle مع تفعيل coreLibraryDesugaring
           cat << 'EOF' > android/app/build.gradle
           def localProperties = new Properties()
           def localPropertiesFile = rootProject.file('local.properties')
@@ -124,6 +124,16 @@ jobs:
               namespace "com.rased.rased_v2"
               compileSdkVersion 34
 
+              compileOptions {
+                  coreLibraryDesugaringEnabled true
+                  sourceCompatibility JavaVersion.VERSION_1_8
+                  targetCompatibility JavaVersion.VERSION_1_8
+              }
+
+              kotlinOptions {
+                  jvmTarget = '1.8'
+              }
+
               defaultConfig {
                   applicationId "com.rased.rased_v2"
                   minSdkVersion 24
@@ -140,6 +150,10 @@ jobs:
                       shrinkResources false
                   }
               }
+          }
+
+          dependencies {
+              coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
           }
 
           flutter {

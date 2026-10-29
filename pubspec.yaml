@@ -12,29 +12,29 @@ dependencies:
   
   # UI & Utilities
   shared_preferences: ^2.2.2
-  file_picker: ^8.1.7
+  file_picker: ^8.0.0
   excel: ^3.0.0
   geolocator: ^10.1.0
   url_launcher: ^6.2.1
   permission_handler: ^10.4.5
-  speech_to_text: ^6.3.0
+  speech_to_text: ^6.6.0
   
   # NoSQL Database (O(1) Speed)
-  isar: ^3.1.0
-  isar_flutter_libs: ^3.1.0
-  path_provider: ^2.1.1
+  isar: ^3.1.0+1
+  isar_flutter_libs: ^3.1.0+1
+  path_provider: ^2.1.2
   
   # Offline Speech & Background Services
   vosk_flutter: any
-  flutter_background_service: any
-  flutter_background_service_android: any
-  flutter_local_notifications: ^16.0.0
+  flutter_background_service: ^5.0.5
+  flutter_background_service_android: ^6.2.2
+  flutter_local_notifications: ^17.2.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  build_runner: any
-  isar_generator: ^3.1.0
+  build_runner: ^2.4.9
+  isar_generator: ^3.1.0+1
 
 flutter:
   uses-material-design: true

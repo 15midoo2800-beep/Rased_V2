@@ -43,27 +43,32 @@ jobs:
           echo "android.useAndroidX=true" >> android/gradle.properties
           echo "android.enableJetifier=true" >> android/gradle.properties
 
-          # 2. ضبط إصدارات SDK
+          # 2. ضبط إصدارات SDK إلى 35
           if [ -f android/app/build.gradle ]; then
-            sed -i 's/compileSdk .*/compileSdk 34/g' android/app/build.gradle
-            sed -i 's/compileSdkVersion .*/compileSdkVersion 34/g' android/app/build.gradle
+            sed -i 's/compileSdk .*/compileSdk 35/g' android/app/build.gradle
+            sed -i 's/compileSdkVersion .*/compileSdkVersion 35/g' android/app/build.gradle
             sed -i 's/minSdk .*/minSdk 24/g' android/app/build.gradle
             sed -i 's/minSdkVersion .*/minSdkVersion 24/g' android/app/build.gradle
-            sed -i 's/targetSdk .*/targetSdk 34/g' android/app/build.gradle
-            sed -i 's/targetSdkVersion .*/targetSdkVersion 34/g' android/app/build.gradle
+            sed -i 's/targetSdk .*/targetSdk 35/g' android/app/build.gradle
+            sed -i 's/targetSdkVersion .*/targetSdkVersion 35/g' android/app/build.gradle
           fi
 
-          # 3. الصلاحيات وخدمة الخلفية
+          # 3. الصلاحيات وخدمة الخلفية في AndroidManifest.xml
           sed -i '/<application/i \    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />' android/app/src/main/AndroidManifest.xml
           sed -i '/<\/application>/i \        <service android:name="id.flutter.flutter_background_service.BackgroundService" android:foregroundServiceType="microphone|location" android:exported="true" />' android/app/src/main/AndroidManifest.xml
 
-          # 4. إصلاح namespace في مكتبة isar_flutter_libs مباشرة في الكاش
+          # 4. إصلاح خطأ geolocator_android وجميع المكتبات التي تطلب compileSdkVersion أو تبحث عن flutter.compileSdkVersion
+          find /home/runner/.pub-cache -name "build.gradle" -exec sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 35/g' {} + || true
+          find /home/runner/.pub-cache -name "build.gradle" -exec sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 35/g' {} + || true
+          find /home/runner/.pub-cache -name "build.gradle" -exec sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/g' {} + || true
+
+          # 5. إصلاح namespace في مكتبة isar_flutter_libs
           find /home/runner/.pub-cache -path "*/isar_flutter_libs-*/android/build.gradle" -exec sed -i '/android {/a \    namespace "dev.isar.isar_flutter_libs"' {} + || true
 
-          # 5. استبدال jcenter بـ mavenCentral
+          # 6. استبدال jcenter بـ mavenCentral
           find /home/runner/.pub-cache -name "build.gradle" -exec sed -i 's/jcenter()/mavenCentral()/g' {} + || true
 
-          # 6. إصلاح خطأ الإشعارات
+          # 7. إصلاح خطأ الإشعارات
           find /home/runner/.pub-cache -name "FlutterLocalNotificationsPlugin.java" -exec sed -i 's/bigPictureStyle.bigLargeIcon(null);/bigPictureStyle.bigLargeIcon((android.graphics.Bitmap) null);/g' {} + || true
 
       - name: Build Release APK

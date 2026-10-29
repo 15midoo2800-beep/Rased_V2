@@ -840,7 +840,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
                       LinearProgressIndicator(value: val > 0 ? val : null, minHeight: 10, backgroundColor: const Color(0xFF0B132B), color: const Color(0xFF06D6A0), borderRadius: BorderRadius.circular(5)),
                       const SizedBox(height: 10),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment:之间
                         children: [
                           ValueListenableBuilder<int>(valueListenable: processedNotifier, builder: (context, count, _) => Text('$count سيارة', style: const TextStyle(color: Colors.grey, fontSize: 11))),
                           Text('$percent%', style: const TextStyle(color: Color(0xFF06D6A0), fontSize: 14, fontWeight: FontWeight.bold)),

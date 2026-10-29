@@ -432,7 +432,7 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> with Wi
                   const SizedBox(height: 16),
                   TextField(
                     controller: _codeCtrl,
-                    textAlign: distortionFix(_codeCtrl.text),
+                    textAlign: TextAlign.center,
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       hintText: 'أدخل كود التفعيل هنا (ACT-...)',
@@ -474,8 +474,6 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> with Wi
       ),
     );
   }
-
-  TextAlign distortionFix(String t) => TextAlign.center;
 }
 
 // ==========================================
@@ -934,7 +932,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
               String statusVal = rowUsesRasedCols && cellVal(2).isNotEmpty ? cellVal(2) : 'مطابق';
               String typeVal = rowUsesRasedCols ? cellVal(3) : cellVal(1);
               String distVal = rowUsesRasedCols && cellVal(4).isNotEmpty ? cellVal(4) : _currentDistrict;
-              String streetVal = rowUsesRasedCols ? cellVal(5).isNotEmpty ? cellVal(5) : _currentStreet;
+              String streetVal = rowUsesRasedCols && cellVal(5).isNotEmpty ? cellVal(5) : _currentStreet;
               String shassisVal = rowUsesRasedCols ? cellVal(6) : cellVal(3);
               String ownerVal = rowUsesRasedCols ? cellVal(7) : cellVal(2);
               String noteVal = rowUsesRasedCols && cellVal(9).isNotEmpty ? cellVal(9) : 'سجل سابق';
@@ -1256,7 +1254,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Colors.redAccent, width: 3)),
         title: Text(AppStrings.isAr ? '🚨 تم رصد سيارة مطلوبة!' : '🚨 Wanted Car Detected!', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 18), textAlign: TextAlign.center),
         content: Column(
-          mainAxisSize: minAxisSize(),
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(padding: const EdgeInsets.symmetric(vertical: 10), decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(12)), child: Text('$letters $digits', textAlign: TextAlign.center, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87))),
@@ -1272,8 +1270,6 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
       ),
     );
   }
-
-  MainAxisSize minAxisSize() => MainAxisSize.min;
 
   @override
   Widget build(BuildContext context) {

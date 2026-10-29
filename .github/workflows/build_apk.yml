@@ -29,6 +29,8 @@ jobs:
         run: |
           mkdir -p android/app/src/main/res/values
           mkdir -p android/app/src/main/res/drawable
+          mkdir -p android/app/src/main/res/mipmap-anydpi-v26
+          mkdir -p android/app/src/main/res/mipmap-hdpi
 
           # 1. إعدادات gradle.properties
           cat << 'EOF' > android/gradle.properties
@@ -101,7 +103,7 @@ jobs:
           }
           EOF
 
-          # 5. ملف android/app/build.gradle مع تفعيل coreLibraryDesugaring
+          # 5. ملف android/app/build.gradle مع coreLibraryDesugaring
           cat << 'EOF' > android/app/build.gradle
           def localProperties = new Properties()
           def localPropertiesFile = rootProject.file('local.properties')
@@ -161,7 +163,16 @@ jobs:
           }
           EOF
 
-          # 6. ملف AndroidManifest.xml
+          # 6. حل مشكلة الأيقونة عبر إضافة ic_launcher
+          cat << 'EOF' > android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@android:color/black" />
+              <foreground android:drawable="@android:drawable/sym_def_app_icon" />
+          </adaptive-icon>
+          EOF
+
+          # 7. ملف AndroidManifest.xml
           cat << 'EOF' > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -176,7 +187,7 @@ jobs:
               <application
                   android:label="RASED"
                   android:name="${applicationName}"
-                  android:icon="@mipmap/ic_launcher">
+                  android:icon="@android:drawable/sym_def_app_icon">
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
@@ -205,7 +216,7 @@ jobs:
           </manifest>
           EOF
 
-          # 7. ملف styles.xml
+          # 8. ملف styles.xml
           cat << 'EOF' > android/app/src/main/res/values/styles.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>

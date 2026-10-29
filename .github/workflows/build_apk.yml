@@ -19,17 +19,175 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Setup Flutter (Pinned Stable Version)
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.5'
           channel: 'stable'
 
-      - name: Generate Android Skeleton
+      - name: Configure Complete Stable Android Environment
         run: |
-          flutter create --org com.rased --project-name rased_v2 temp_proj
-          cp -r temp_proj/android ./android
-          rm -rf temp_proj
+          mkdir -p android/app/src/main/res/values
+          mkdir -p android/app/src/main/res/drawable
+
+          # 1. ملف gradle.properties
+          cat << 'EOF' > android/gradle.properties
+          org.gradle.jvmargs=-Xmx4G
+          android.useAndroidX=true
+          android.enableJetifier=true
+          EOF
+
+          # 2. ملف settings.gradle القياسي المستقر
+          cat << 'EOF' > android/settings.gradle
+          include ':app'
+
+          def localPropertiesFile = new File(rootProject.projectDir, "local.properties")
+          def properties = new Properties()
+
+          assert localPropertiesFile.exists()
+          localPropertiesFile.withReader("UTF-8") { reader -> properties.load(reader) }
+
+          def flutterSdkPath = properties.getProperty("flutter.sdk")
+          assert flutterSdkPath != null, "flutter.sdk not set in local.properties"
+          apply from: "$flutterSdkPath/packages/flutter_tools/gradle/app_plugin_loader.gradle"
+          EOF
+
+          # 3. ملف root build.gradle الذي يحل مشاكل namespace و compileSdk لجميع الموديولات جذرياً
+          cat << 'EOF' > android/build.gradle
+          buildscript {
+              ext.kotlin_version = '1.9.24'
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.2.1'
+                  classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+              }
+          }
+
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.buildDir = '../build'
+          subprojects {
+              project.buildDir = "${rootProject.buildDir}/${project.name}"
+              afterEvaluate { project ->
+                  if (project.hasProperty("android")) {
+                      project.android {
+                          compileSdkVersion 34
+                          buildToolsVersion "34.0.0"
+                          if (namespace == null) {
+                              namespace = project.group ?: "com.example.${project.name.replace('-', '_')}"
+                          }
+                      }
+                  }
+              }
+          }
+          subprojects {
+              project.evaluationDependsOn(':app')
+          }
+
+          tasks.register("clean", Delete) {
+              delete rootProject.buildDir
+          }
+          EOF
+
+          # 4. ملف android/app/build.gradle
+          cat << 'EOF' > android/app/build.gradle
+          plugins {
+              id "com.android.application"
+              id "kotlin-android"
+              id "dev.flutter.flutter-gradle-plugin"
+          }
+
+          android {
+              namespace "com.rased.rased_v2"
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId "com.rased.rased_v2"
+                  minSdk 24
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0.0"
+                  multiDexEnabled true
+              }
+
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.debug
+                      minifyEnabled false
+                      shrinkResources false
+                  }
+              }
+          }
+
+          flutter {
+              source '../..'
+          }
+          EOF
+
+          # 5. ملف AndroidManifest.xml بجميع الصلاحيات والخدمات
+          cat << 'EOF' > android/app/src/main/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.RECORD_AUDIO" />
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+              <uses-permission android:name="android.permission.WAKE_LOCK" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+
+              <application
+                  android:label="RASED"
+                  android:name="${applicationName}"
+                  android:icon="@mipmap/ic_launcher">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:launchMode="singleTop"
+                      android:theme="@style/LaunchTheme"
+                      android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+                      android:hardwareAccelerated="true"
+                      android:windowSoftInputMode="adjustResize">
+                      <meta-data
+                        android:name="io.flutter.embedding.android.NormalTheme"
+                        android:resource="@style/NormalTheme"
+                        />
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+                  <meta-data
+                      android:name="flutterEmbedding"
+                      android:value="2" />
+                  <service
+                      android:name="id.flutter.flutter_background_service.BackgroundService"
+                      android:foregroundServiceType="microphone|location"
+                      android:exported="true" />
+              </application>
+          </manifest>
+          EOF
+
+          # 6. ملف styles.xml
+          cat << 'EOF' > android/app/src/main/res/values/styles.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+                  <item name="android:windowBackground">@android:color/black</item>
+              </style>
+              <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+                  <item name="android:windowBackground">@android:color/black</item>
+              </style>
+          </resources>
+          EOF
 
       - name: Get Dependencies
         run: flutter pub get
@@ -37,39 +195,18 @@ jobs:
       - name: Generate Isar Database Files
         run: dart run build_runner build --delete-conflicting-outputs
 
-      - name: Deep Patch Android & Plugin Issues
+      - name: Fix Cache Libraries Issues
         run: |
-          # 1. إعدادات التوافق
-          echo "android.useAndroidX=true" >> android/gradle.properties
-          echo "android.enableJetifier=true" >> android/gradle.properties
-
-          # 2. ضبط إصدارات SDK إلى 35
-          if [ -f android/app/build.gradle ]; then
-            sed -i 's/compileSdk .*/compileSdk 35/g' android/app/build.gradle
-            sed -i 's/compileSdkVersion .*/compileSdkVersion 35/g' android/app/build.gradle
-            sed -i 's/minSdk .*/minSdk 24/g' android/app/build.gradle
-            sed -i 's/minSdkVersion .*/minSdkVersion 24/g' android/app/build.gradle
-            sed -i 's/targetSdk .*/targetSdk 35/g' android/app/build.gradle
-            sed -i 's/targetSdkVersion .*/targetSdkVersion 35/g' android/app/build.gradle
-          fi
-
-          # 3. الصلاحيات وخدمة الخلفية في AndroidManifest.xml
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />' android/app/src/main/AndroidManifest.xml
-          sed -i '/<\/application>/i \        <service android:name="id.flutter.flutter_background_service.BackgroundService" android:foregroundServiceType="microphone|location" android:exported="true" />' android/app/src/main/AndroidManifest.xml
-
-          # 4. إصلاح خطأ geolocator_android وجميع المكتبات التي تطلب compileSdkVersion أو تبحث عن flutter.compileSdkVersion
-          find /home/runner/.pub-cache -name "build.gradle" -exec sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 35/g' {} + || true
-          find /home/runner/.pub-cache -name "build.gradle" -exec sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 35/g' {} + || true
-          find /home/runner/.pub-cache -name "build.gradle" -exec sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/g' {} + || true
-
-          # 5. إصلاح namespace في مكتبة isar_flutter_libs
-          find /home/runner/.pub-cache -path "*/isar_flutter_libs-*/android/build.gradle" -exec sed -i '/android {/a \    namespace "dev.isar.isar_flutter_libs"' {} + || true
-
-          # 6. استبدال jcenter بـ mavenCentral
+          # استبدال jcenter القديم
           find /home/runner/.pub-cache -name "build.gradle" -exec sed -i 's/jcenter()/mavenCentral()/g' {} + || true
 
-          # 7. إصلاح خطأ الإشعارات
+          # تصحيح تعارض خطأ bigLargeIcon في الإشعارات
           find /home/runner/.pub-cache -name "FlutterLocalNotificationsPlugin.java" -exec sed -i 's/bigPictureStyle.bigLargeIcon(null);/bigPictureStyle.bigLargeIcon((android.graphics.Bitmap) null);/g' {} + || true
+
+          # تصحيح مباشر لسطر flutter.compileSdkVersion داخل كود geolocator_android
+          find /home/runner/.pub-cache -path "*/geolocator_android-*/android/build.gradle" -exec sed -i 's/flutter.compileSdkVersion/34/g' {} + || true
+          find /home/runner/.pub-cache -path "*/geolocator_android-*/android/build.gradle" -exec sed -i 's/flutter.targetSdkVersion/34/g' {} + || true
+          find /home/runner/.pub-cache -path "*/geolocator_android-*/android/build.gradle" -exec sed -i 's/flutter.minSdkVersion/24/g' {} + || true
 
       - name: Build Release APK
         run: flutter build apk --release --no-tree-shake-icons

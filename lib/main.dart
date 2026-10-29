@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/services.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:file_picker/file_picker.dart';
@@ -18,7 +19,6 @@ import 'package:flutter_background_service_android/flutter_background_service_an
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:vosk_flutter/vosk_flutter.dart';
 
-// استدعاء الملفات المعزولة (قاعدة البيانات والمحرك الصوتي)
 import 'models/wanted_car.dart';
 import 'services/speech_engine.dart';
 
@@ -487,14 +487,12 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _speechEnabled = false;
 
-  // Stream Buffer Variables
   int _consumedWordCount = 0;
   String _lastFullRecognized = '';
   Timer? _pendingTimer;
   Map<String, String>? _pendingPlate;
   DateTime? _lastPlateInsertedAt;
 
-  // Isar Database Instance
   late Isar isar;
   bool _isIsarReady = false;
 
@@ -509,10 +507,6 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
   bool _isGpsEnabled = true;
 
   List<Map<String, String>> _records = [];
-  
-  // الاحتفاظ بنسخة للبحث اليدوي في الذاكرة لتسهيل العرض
-  List<Map<String, String>> _wantedDatabaseForManualSearch = [];
-
   final Set<String> _selectedWantedIds = {};
   final TextEditingController _manualSearchCtrl = TextEditingController();
   List<Map<String, String>> _manualSearchResults = [];
@@ -704,7 +698,6 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
 
     WantedCar? match;
 
-    // 🚀 بحث فائق السرعة عبر قاعدة بيانات Isar O(1)
     if (_isIsarReady) {
       final possibleMatches = await isar.wantedCars.filter().digitsEqualTo(cleanDigits).findAll();
       for (var car in possibleMatches) {
@@ -921,7 +914,6 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
       setState(() {
         if (isWantedSheet) {
           _wantedFileName = '$fileName (${newWantedCars.length})';
-          // بناء الفهرس في قاعدة البيانات Isar (هنا تحدث السرعة الهائلة)
           if (_isIsarReady) {
              isar.writeTxnSync(() {
                isar.wantedCars.clearSync();
@@ -967,19 +959,19 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
       ex.Sheet sheet = excel['سجلات_الرصد'];
       excel.delete('Sheet1');
       sheet.appendRow([
-        ex.TextCellValue('م'), ex.TextCellValue('اللوحة'), ex.TextCellValue('الحالة'), ex.TextCellValue('النوع'),
-        ex.TextCellValue('الحي'), ex.TextCellValue('الشارع'), ex.TextCellValue('رقم الشاص'),
-        ex.TextCellValue('البنك / الجهة'), ex.TextCellValue('رابط الخريطة'), ex.TextCellValue('ملاحظات'), ex.TextCellValue('الوقت'),
+        'م', 'اللوحة', 'الحالة', 'النوع',
+        'الحي', 'الشارع', 'رقم الشاص',
+        'البنك / الجهة', 'رابط الخريطة', 'ملاحظات', 'الوقت',
       ]);
       for (var r in _records) {
         String coords = r['coords'] ?? '';
         String mapLink = coords.isNotEmpty ? 'https://maps.google.com/?q=$coords' : 'غير متوفر';
         sheet.appendRow([
-          ex.TextCellValue(r['id'] ?? ''), ex.TextCellValue('${r['letters']} ${r['digits']}'),
-          ex.TextCellValue(r['status'] ?? ''), ex.TextCellValue(r['type'] ?? ''),
-          ex.TextCellValue(r['district'] ?? ''), ex.TextCellValue(r['street'] ?? ''),
-          ex.TextCellValue(r['shassis'] ?? 'غير متوفر'), ex.TextCellValue(r['owner'] ?? 'غير متوفر'),
-          ex.TextCellValue(mapLink), ex.TextCellValue(r['note'] ?? ''), ex.TextCellValue(r['time'] ?? ''),
+          r['id'] ?? '', '${r['letters']} ${r['digits']}',
+          r['status'] ?? '', r['type'] ?? '',
+          r['district'] ?? '', r['street'] ?? '',
+          r['shassis'] ?? 'غير متوفر', r['owner'] ?? 'غير متوفر',
+          mapLink, r['note'] ?? '', r['time'] ?? '',
         ]);
       }
       Directory downloadDir = Directory('/storage/emulated/0/Download');
@@ -1099,7 +1091,6 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
     String normalizedQuery = SheekhaFullEngine.normalizeFlexible(query);
     List<Map<String, String>> matched = [];
 
-    // البحث في قاعدة بيانات Isar
     if (_isIsarReady) {
       final allWanted = await isar.wantedCars.where().findAll();
       for (var car in allWanted) {

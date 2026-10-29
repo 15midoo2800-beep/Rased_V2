@@ -22,7 +22,7 @@ class SheekhaFullEngine {
     // الراء
     'راء': 'ر', 'را': 'ر', 'ري': 'ر', 'ر': 'ر', 'ره': 'ر',
     // السين
-    'سين': 'س', 'سا': 'س', 'سي': 'س', 'س': 'س', 'سه': 'س',
+    'سا': 'س', 'سين': 'س', 'سي': 'س', 'س': 'س', 'سه': 'س',
     // الصاد
     'صاد': 'ص', 'صا': 'ص', 'صي': 'ص', 'ص': 'ص', 'صه': 'ص',
     // الطاء
@@ -71,6 +71,20 @@ class SheekhaFullEngine {
     'سبعمية': '700', 'سبعمائة': '700', 'تسعمية': '900', 'تسعمائة': '900', 'الف': '1000'
   };
 
+  // الدالة المطلوبة التي كان يشتكي منها المترجم
+  static String normalizeFlexible(String text) {
+    return text
+        .replaceAll('أ', 'ا')
+        .replaceAll('إ', 'ا')
+        .replaceAll('آ', 'ا')
+        .replaceAll('ة', 'ه')
+        .replaceAll('ى', 'ي')
+        .replaceAll(RegExp(r'[^\w\s\u0621-\u064A]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim()
+        .toLowerCase();
+  }
+
   // توحيد الحروف إلى الصيغة المعتمدة نظامياً
   static String _unifyLetter(String char) {
     if (char == 'ا' || char == 'أ' || char == 'إ' || char == 'آ' || char == 'ء') return 'أ';
@@ -117,7 +131,7 @@ class SheekhaFullEngine {
 
   static Future<void> saveLearnedMapping(String spoken, String letters, String digits, String type) async {
     try {
-      String cleanSpoken = spoken.replaceAll(RegExp(r'[^\w\s\u0621-\u064A]'), ' ').trim();
+      String cleanSpoken = normalizeFlexible(spoken);
       if (cleanSpoken.isEmpty) return;
       _learnedMappings[cleanSpoken] = {
         'letters': letters,
@@ -129,16 +143,13 @@ class SheekhaFullEngine {
     } catch (_) {}
   }
 
-  // =========================================================================
-  // المحلل العصبي: يعامل أي كلمة يكتبها جوجل كوعاء يحمل حروف اللوحة المشفرة
-  // =========================================================================
+  // استخراج وتفكيك الحروف الذكي
   static List<String> _extractLettersNeuralContext(String rawSpoken, String carType) {
     String text = rawSpoken;
     if (carType.isNotEmpty && carType != '-') {
       text = text.replaceAll(carType, ' ');
     }
 
-    // إزالة الأرقام المنطوقة والمكتوبة للتركيز فقط على المكون الهجائي
     text = convertSpokenWordsToNumbers(text);
     text = text.replaceAll(RegExp(r'\d+'), ' ');
 
@@ -149,19 +160,14 @@ class SheekhaFullEngine {
       String clean = token.replaceAll(RegExp(r'[^\u0621-\u064A]'), '').trim();
       if (clean.isEmpty) continue;
 
-      // 1. هل الكلمة هي نطق مباشر لاسم الحرف؟ (مثل: "قاف"، "عين"، "دال")
       if (_phoneticToChar.containsKey(clean)) {
         collectedLetters.add(_phoneticToChar[clean]!);
-      }
-      // 2. هل الكلمة حرف واحد صحيح؟
-      else if (clean.length == 1) {
+      } else if (clean.length == 1) {
         String unified = _unifyLetter(clean);
         if (validPlateChars.contains(unified)) {
           collectedLetters.add(unified);
         }
-      }
-      // 3. التفكيك الذكي: إذا قام جوجل بدمج الحروف السريعة في كلمة واحدة (مثل: "قعد" أو "صقر")
-      else {
+      } else {
         for (int i = 0; i < clean.length; i++) {
           String char = _unifyLetter(clean[i]);
           if (validPlateChars.contains(char)) {
@@ -177,13 +183,10 @@ class SheekhaFullEngine {
     return collectedLetters.take(3).toList();
   }
 
-  // =========================================================================
-  // المعالج الشامل واللحظي
-  // =========================================================================
+  // المعالج الشامل الفوري
   static Map<String, dynamic>? parsePlateAndType(String spokenText, {bool isFinalResult = false}) {
-    String cleanSpoken = spokenText.replaceAll(RegExp(r'[^\w\s\u0621-\u064A]'), ' ').trim();
+    String cleanSpoken = normalizeFlexible(spokenText);
 
-    // 1. فحص ذاكرة التعلم الذاتي التراكمية
     if (_learnedMappings.containsKey(cleanSpoken)) {
       var item = _learnedMappings[cleanSpoken]!;
       return {
@@ -195,10 +198,8 @@ class SheekhaFullEngine {
       };
     }
 
-    // 2. استخراج ماركة ونوع السيارة
     String detectedType = extractVehicleType(spokenText) ?? '-';
 
-    // 3. تحويل النص العامي إلى أرقام وسحب أعلى تسلسل رقمي
     String textWithConvertedNumbers = convertSpokenWordsToNumbers(spokenText);
     String normalizedAllDigits = normalizeDigits(textWithConvertedNumbers);
 
@@ -214,10 +215,8 @@ class SheekhaFullEngine {
       }
     }
 
-    // 4. استخراج الحروف عبر التفكيك العصبي
     List<String> lettersList = _extractLettersNeuralContext(spokenText, detectedType);
 
-    // الاعتماد الفوري للوحة عند توافر الأرقام (من خانتين إلى 4) وحروف صالحة
     if (lettersList.isNotEmpty && extractedDigits.isNotEmpty && extractedDigits.length >= 2) {
       String formattedLetters = lettersList.join(' ');
       bool startsWithAlefOrBaa = formattedLetters.startsWith('أ') || formattedLetters.startsWith('ب');

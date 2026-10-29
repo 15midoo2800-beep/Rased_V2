@@ -249,7 +249,7 @@ jobs:
         run: flutter pub get
 
       - name: Generate Isar Database Files
-        run: dart run build_runner build --delete-conflicting-outputs
+        run: dart run build_runner build --build-filter="lib/models/wanted_car.dart" --delete-conflicting-outputs
 
       - name: Fix Cache Libraries Issues
         run: |

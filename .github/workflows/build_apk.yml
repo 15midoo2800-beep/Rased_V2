@@ -32,7 +32,7 @@ jobs:
           mkdir -p android/app/src/main/res/mipmap-anydpi-v26
           mkdir -p android/app/src/main/kotlin/com/rased/rased_v2
 
-          # 1. كود النشاط الرئيسي
+          # 1. كود MainActivity.kt
           cat << 'EOF' > android/app/src/main/kotlin/com/rased/rased_v2/MainActivity.kt
           package com.rased.rased_v2
 
@@ -182,7 +182,7 @@ jobs:
           </adaptive-icon>
           EOF
 
-          # 8. ملف AndroidManifest.xml شاملاً استعلامات التعرف على الصوت <queries>
+          # 8. ملف AndroidManifest.xml
           cat << 'EOF' > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -244,6 +244,12 @@ jobs:
               </style>
           </resources>
           EOF
+
+      # الخطوة الثالثة: تحميل نموذج Whisper تلقائياً داخل مجلد assets/models
+      - name: Download Whisper Tiny Model
+        run: |
+          mkdir -p assets/models
+          curl -L -o assets/models/ggml-tiny.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin
 
       - name: Get Dependencies
         run: flutter pub get

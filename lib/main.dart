@@ -176,7 +176,7 @@ class RasedLicenseManager {
     return null;
   }
 
-  static Future<Map<String, dynamic>> checkRemoteStatus(String myDeviceId, String currentExpiryIso) async {
+  static Future> checkRemoteStatus(String myDeviceId, String currentExpiryIso) async {
     final prefs = await SharedPreferences.getInstance();
     bool remoteCheckSuccessful = false;
     try {
@@ -515,10 +515,10 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
   String _savedWhatsAppPhone = '00201155661920';
   bool _isGpsEnabled = true;
 
-  List<Map<String, String>> _records = [];
+  List> _records = [];
   final Set<String> _selectedWantedIds = {};
   final TextEditingController _manualSearchCtrl = TextEditingController();
-  List<Map<String, String>> _manualSearchResults = [];
+  List> _manualSearchResults = [];
   bool _isManualSearching = false;
 
   @override
@@ -648,11 +648,11 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
     _lastFullRecognized = '';
 
     await _speech.listen(
-      listenMode: stt.ListenMode.dictation,
+      listenMode: stt.ListenMode.confirmation, // نمط حاد لالتقاط الحروف بدقة
       partialResults: true,
       cancelOnError: false,
       listenFor: const Duration(hours: 2),
-      pauseFor: const Duration(minutes: 5),
+      pauseFor: const Duration(seconds: 4),
       onSoundLevelChange: (level) {
         if (mounted) setState(() => _soundLevel = level.clamp(0.0, 15.0));
       },
@@ -670,7 +670,9 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
         List<String> activeWords = allWords.sublist(_consumedWordCount);
         String activeSegment = activeWords.join(' ').trim();
         
-        String displayBar = activeWords.length > 9 ? activeWords.sublist(activeWords.length - 9).join(' ') : (activeSegment.isNotEmpty ? activeSegment : fullSpoken);
+        String displayBar = activeWords.length > 7 
+            ? activeWords.sublist(activeWords.length - 7).join(' ') 
+            : (activeSegment.isNotEmpty ? activeSegment : fullSpoken);
         setState(() => _currentStatusText = displayBar);
 
         if (activeSegment.isEmpty) return;
@@ -707,7 +709,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
           if (_pendingPlate != null && _pendingPlate!['key'] != key) _commitPendingPlate();
 
           DateTime now = DateTime.now();
-          bool isRecent = _cooldowns.containsKey(key) && now.difference(_cooldowns[key]!).inMilliseconds < 3000;
+          bool isRecent = _cooldowns.containsKey(key) && now.difference(_cooldowns[key]!).inMilliseconds < 2500;
 
           if (!isRecent) {
             _cooldowns[key] = now;
@@ -716,7 +718,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
             if (startsWithAlefOrBaa && !hasExplicitType) {
               _pendingPlate = {'key': key, 'letters': letters, 'digits': digits, 'type': '-', 'raw': activeSegment};
               _pendingTimer?.cancel();
-              _pendingTimer = Timer(const Duration(milliseconds: 1600), () {
+              _pendingTimer = Timer(const Duration(milliseconds: 1400), () {
                 if (mounted) _commitPendingPlate();
               });
             } else {
@@ -725,7 +727,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
           }
         } else {
           if (_records.isNotEmpty && _lastPlateInsertedAt != null) {
-            if (DateTime.now().difference(_lastPlateInsertedAt!).inSeconds <= 8) {
+            if (DateTime.now().difference(_lastPlateInsertedAt!).inSeconds <= 6) {
               String? standaloneType = SheekhaFullEngine.extractVehicleType(activeSegment);
               if (standaloneType != null && (_records[0]['type'] == '-' || _records[0]['type'] == 'ملاكي')) {
                 setState(() {
@@ -859,7 +861,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
     try {
       var excel = ex.Excel.decodeBytes(bytes);
       List<WantedCar> newWantedCars = [];
-      List<Map<String, String>> newRecords = [];
+      List> newRecords = [];
 
       List<String> targetSheets = excel.tables.keys.toList();
       if (isWantedSheet && targetSheets.contains('بيانات')) targetSheets = ['بيانات'];
@@ -1102,7 +1104,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
   }
 
   void _sendWantedToWhatsApp() async {
-    List<Map<String, String>> toSend = _records.where((r) => r['status'] == 'مطلوبة' && _selectedWantedIds.contains(r['id'])).toList();
+    List> toSend = _records.where((r) => r['status'] == 'مطلوبة' && _selectedWantedIds.contains(r['id'])).toList();
     if (toSend.isEmpty) toSend = _records.where((r) => r['status'] == 'مطلوبة').toList();
     if (toSend.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppStrings.isAr ? 'لا توجد سيارات مطلوبة لإرسالها' : 'No wanted cars to send')));
@@ -1141,7 +1143,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
     setState(() => _isManualSearching = true);
 
     String normalizedQuery = SheekhaFullEngine.normalizeFlexible(query);
-    List<Map<String, String>> matched = [];
+    List> matched = [];
 
     if (_isIsarReady) {
       try {
@@ -1219,7 +1221,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
     final bool? savedGps = prefs.getBool('rased_gps_enabled');
 
     setState(() {
-      if (savedRecords != null) _records = List<Map<String, String>>.from(json.decode(savedRecords).map((x) => Map<String, String>.from(x)));
+      if (savedRecords != null) _records = List>.from(json.decode(savedRecords).map((x) => Map<String, String>.from(x)));
       if (savedPhone != null) _savedWhatsAppPhone = savedPhone;
       if (savedWantedName != null) _wantedFileName = savedWantedName;
       if (savedGps != null) _isGpsEnabled = savedGps;
@@ -1399,7 +1401,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
   }
 
   Widget _buildWantedRecordsTab() {
-    List<Map<String, String>> wantedList = _records.where((r) => r['status'] == 'مطلوبة').toList();
+    List> wantedList = _records.where((r) => r['status'] == 'مطلوبة').toList();
     return Padding(
       padding: const EdgeInsets.all(12.0),
       child: Column(
@@ -1586,7 +1588,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
     );
   }
 
-  Widget _buildRecordsListView(List<Map<String, String>> list) {
+  Widget _buildRecordsListView(List> list) {
     if (list.isEmpty) return Center(child: Text(AppStrings.noRecords, style: const TextStyle(color: Colors.grey)));
     return ListView.builder(
       itemCount: list.length,

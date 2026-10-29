@@ -245,12 +245,6 @@ jobs:
           </resources>
           EOF
 
-      # الخطوة الثالثة: تحميل نموذج Whisper تلقائياً داخل مجلد assets/models
-      - name: Download Whisper Tiny Model
-        run: |
-          mkdir -p assets/models
-          curl -L -o assets/models/ggml-tiny.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin
-
       - name: Get Dependencies
         run: flutter pub get
 

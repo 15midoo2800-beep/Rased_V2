@@ -22,8 +22,11 @@ import 'package:vosk_flutter/vosk_flutter.dart';
 import 'models/wanted_car.dart';
 import 'services/speech_engine.dart';
 
+// تعريف نوع مخصص لتفادي أي خطأ في نسخ الأقواس المعقوفة
+typedef PlateRecord = Map<String, String>;
+
 // ==========================================
-// 1. إعداد خدمة الخلفية
+// 1. إعداد خدمة الخلفية الآمنة
 // ==========================================
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
@@ -482,7 +485,7 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> with Wi
 }
 
 // ==========================================
-// 5. الواجهة الرئيسية
+// 5. الواجهة الرئيسية ومنطق الرصد
 // ==========================================
 class SheekhaHomeScreen extends StatefulWidget {
   final Function(Locale) onLanguageChange;
@@ -520,10 +523,10 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
   String _savedWhatsAppPhone = '00201155661920';
   bool _isGpsEnabled = true;
 
-  List> _records = [];
+  List<PlateRecord> _records = [];
   final Set<String> _selectedWantedIds = {};
   final TextEditingController _manualSearchCtrl = TextEditingController();
-  List> _manualSearchResults = [];
+  List<PlateRecord> _manualSearchResults = [];
   bool _isManualSearching = false;
 
   @override
@@ -866,7 +869,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
     try {
       var excel = ex.Excel.decodeBytes(bytes);
       List<WantedCar> newWantedCars = [];
-      List> newRecords = [];
+      List<PlateRecord> newRecords = [];
 
       List<String> targetSheets = excel.tables.keys.toList();
       if (isWantedSheet && targetSheets.contains('بيانات')) targetSheets = ['بيانات'];
@@ -1109,7 +1112,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
   }
 
   void _sendWantedToWhatsApp() async {
-    List> toSend = _records.where((r) => r['status'] == 'مطلوبة' && _selectedWantedIds.contains(r['id'])).toList();
+    List<PlateRecord> toSend = _records.where((r) => r['status'] == 'مطلوبة' && _selectedWantedIds.contains(r['id'])).toList();
     if (toSend.isEmpty) toSend = _records.where((r) => r['status'] == 'مطلوبة').toList();
     if (toSend.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppStrings.isAr ? 'لا توجد سيارات مطلوبة لإرسالها' : 'No wanted cars to send')));
@@ -1148,7 +1151,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
     setState(() => _isManualSearching = true);
 
     String normalizedQuery = SheekhaFullEngine.normalizeFlexible(query);
-    List> matched = [];
+    List<PlateRecord> matched = [];
 
     if (_isIsarReady) {
       try {
@@ -1226,14 +1229,18 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
     final bool? savedGps = prefs.getBool('rased_gps_enabled');
 
     setState(() {
-      if (savedRecords != null) _records = List>.from(json.decode(savedRecords).map((x) => Map<String, String>.from(x)));
+      if (savedRecords != null) {
+        List<dynamic> decoded = json.decode(savedRecords);
+        _records = decoded.map((x) => Map<String, String>.from(x as Map)).toList();
+      }
       if (savedPhone != null) _savedWhatsAppPhone = savedPhone;
       if (savedWantedName != null) _wantedFileName = savedWantedName;
       if (savedGps != null) _isGpsEnabled = savedGps;
       if (savedDistricts != null) {
-        List<String> loadedDistricts = List<String>.from(json.decode(savedDistricts));
+        List<dynamic> loadedDistricts = json.decode(savedDistricts);
         for (var d in loadedDistricts) {
-          if (!_districts.contains(d)) _districts.add(d);
+          String dStr = d.toString();
+          if (!_districts.contains(dStr)) _districts.add(dStr);
         }
       }
     });
@@ -1406,7 +1413,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
   }
 
   Widget _buildWantedRecordsTab() {
-    List> wantedList = _records.where((r) => r['status'] == 'مطلوبة').toList();
+    List<PlateRecord> wantedList = _records.where((r) => r['status'] == 'مطلوبة').toList();
     return Padding(
       padding: const EdgeInsets.all(12.0),
       child: Column(
@@ -1593,7 +1600,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
     );
   }
 
-  Widget _buildRecordsListView(List> list) {
+  Widget _buildRecordsListView(List<PlateRecord> list) {
     if (list.isEmpty) return Center(child: Text(AppStrings.noRecords, style: const TextStyle(color: Colors.grey)));
     return ListView.builder(
       itemCount: list.length,

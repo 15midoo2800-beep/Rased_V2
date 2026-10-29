@@ -30,14 +30,18 @@ jobs:
           mkdir -p android/app/src/main/res/values
           mkdir -p android/app/src/main/res/drawable
 
-          # 1. ملف gradle.properties
+          # 1. إعدادات gradle.properties
           cat << 'EOF' > android/gradle.properties
           org.gradle.jvmargs=-Xmx4G
           android.useAndroidX=true
           android.enableJetifier=true
           EOF
 
-          # 2. ملف settings.gradle القياسي المستقر
+          # 2. إنشاء local.properties بمسار Flutter SDK
+          echo "flutter.sdk=$FLUTTER_ROOT" > android/local.properties
+          echo "sdk.dir=$ANDROID_HOME" >> android/local.properties
+
+          # 3. ملف settings.gradle الكلاسيكي المتوافق
           cat << 'EOF' > android/settings.gradle
           include ':app'
 
@@ -52,7 +56,7 @@ jobs:
           apply from: "$flutterSdkPath/packages/flutter_tools/gradle/app_plugin_loader.gradle"
           EOF
 
-          # 3. ملف root build.gradle الذي يحل مشاكل namespace و compileSdk لجميع الموديولات جذرياً
+          # 4. ملف root build.gradle
           cat << 'EOF' > android/build.gradle
           buildscript {
               ext.kotlin_version = '1.9.24'
@@ -97,22 +101,33 @@ jobs:
           }
           EOF
 
-          # 4. ملف android/app/build.gradle
+          # 5. ملف android/app/build.gradle الكلاسيكي (بدون إضافة flutter المفقودة)
           cat << 'EOF' > android/app/build.gradle
-          plugins {
-              id "com.android.application"
-              id "kotlin-android"
-              id "dev.flutter.flutter-gradle-plugin"
+          def localProperties = new Properties()
+          def localPropertiesFile = rootProject.file('local.properties')
+          if (localPropertiesFile.exists()) {
+              localPropertiesFile.withReader('UTF-8') { reader ->
+                  localProperties.load(reader)
+              }
           }
+
+          def flutterRoot = localProperties.getProperty('flutter.sdk')
+          if (flutterRoot == null) {
+              throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
+          }
+
+          apply plugin: 'com.android.application'
+          apply plugin: 'kotlin-android'
+          apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 
           android {
               namespace "com.rased.rased_v2"
-              compileSdk 34
+              compileSdkVersion 34
 
               defaultConfig {
                   applicationId "com.rased.rased_v2"
-                  minSdk 24
-                  targetSdk 34
+                  minSdkVersion 24
+                  targetSdkVersion 34
                   versionCode 1
                   versionName "1.0.0"
                   multiDexEnabled true
@@ -132,7 +147,7 @@ jobs:
           }
           EOF
 
-          # 5. ملف AndroidManifest.xml بجميع الصلاحيات والخدمات
+          # 6. ملف AndroidManifest.xml
           cat << 'EOF' > android/app/src/main/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -176,7 +191,7 @@ jobs:
           </manifest>
           EOF
 
-          # 6. ملف styles.xml
+          # 7. ملف styles.xml
           cat << 'EOF' > android/app/src/main/res/values/styles.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -197,13 +212,8 @@ jobs:
 
       - name: Fix Cache Libraries Issues
         run: |
-          # استبدال jcenter القديم
           find /home/runner/.pub-cache -name "build.gradle" -exec sed -i 's/jcenter()/mavenCentral()/g' {} + || true
-
-          # تصحيح تعارض خطأ bigLargeIcon في الإشعارات
           find /home/runner/.pub-cache -name "FlutterLocalNotificationsPlugin.java" -exec sed -i 's/bigPictureStyle.bigLargeIcon(null);/bigPictureStyle.bigLargeIcon((android.graphics.Bitmap) null);/g' {} + || true
-
-          # تصحيح مباشر لسطر flutter.compileSdkVersion داخل كود geolocator_android
           find /home/runner/.pub-cache -path "*/geolocator_android-*/android/build.gradle" -exec sed -i 's/flutter.compileSdkVersion/34/g' {} + || true
           find /home/runner/.pub-cache -path "*/geolocator_android-*/android/build.gradle" -exec sed -i 's/flutter.targetSdkVersion/34/g' {} + || true
           find /home/runner/.pub-cache -path "*/geolocator_android-*/android/build.gradle" -exec sed -i 's/flutter.minSdkVersion/24/g' {} + || true

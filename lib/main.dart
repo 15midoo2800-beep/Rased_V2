@@ -432,7 +432,7 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> with Wi
                   const SizedBox(height: 16),
                   TextField(
                     controller: _codeCtrl,
-                    textAlign: TextAlign.center,
+                    textAlign: distortionFix(_codeCtrl.text),
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       hintText: 'أدخل كود التفعيل هنا (ACT-...)',
@@ -474,6 +474,8 @@ class _SubscriptionGateScreenState extends State<SubscriptionGateScreen> with Wi
       ),
     );
   }
+
+  TextAlign distortionFix(String t) => TextAlign.center;
 }
 
 // ==========================================
@@ -489,7 +491,7 @@ class SheekhaHomeScreen extends StatefulWidget {
 class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
   int _currentIndex = 4;
   bool _isListening = false;
-  String _currentStatusText = AppStrings.listeningNow;
+  String _currentStatusText = AppStrings.stopped;
   double _soundLevel = 0.0;
 
   final Map<String, DateTime> _cooldowns = {};
@@ -546,35 +548,41 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
     super.dispose();
   }
 
-  Future<void> _initEngine() async {
+  Future<bool> _initEngine() async {
     try {
-      var micStatus = await Permission.microphone.request();
-      if (!micStatus.isGranted) return;
+      var micStatus = await Permission.microphone.status;
+      if (!micStatus.isGranted) {
+        micStatus = await Permission.microphone.request();
+      }
+      if (!micStatus.isGranted) {
+        return false;
+      }
+
       bool available = await _speech.initialize(
         onStatus: (status) {
-          if ((status == 'done' || status == 'notListening') && _isListening && mounted) _restartListeningSafely();
+          if ((status == 'done' || status == 'notListening') && _isListening && mounted) {
+            _restartListeningSafely();
+          }
         },
         onError: (error) {
           if (_isListening && mounted) _restartListeningSafely();
         },
       );
       if (mounted) setState(() => _speechEnabled = available);
-    } catch (_) {}
+      return available;
+    } catch (_) {
+      return false;
+    }
   }
 
   void _restartListeningSafely() {
     if (!_isListening) return;
-    Future.delayed(const Duration(milliseconds: 100), () {
+    Future.delayed(const Duration(milliseconds: 150), () {
       if (_isListening && mounted && !_speech.isListening) _startListeningSession();
     });
   }
 
   void _toggleLiveListening() async {
-    try {
-      await initializeBackgroundService();
-    } catch (_) {}
-    
-    final service = FlutterBackgroundService();
     if (_isListening) {
       _commitPendingPlate();
       setState(() {
@@ -583,16 +591,41 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
         _currentStatusText = AppStrings.stopped;
       });
       await _speech.stop();
-      service.invoke("stopService");
-    } else {
-      await SheekhaFullEngine.loadLearnedDictionary();
-      if (!_speechEnabled) {
-        await _initEngine();
-        if (!_speechEnabled) return;
-      }
       try {
-        await service.startService();
+        FlutterBackgroundService().invoke("stopService");
       } catch (_) {}
+    } else {
+      var mic = await Permission.microphone.request();
+      if (!mic.isGranted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('يرجى منح إذن الميكروفون من إعدادات الهاتف لبدء الاستماع'), backgroundColor: Colors.redAccent),
+          );
+        }
+        return;
+      }
+
+      bool ready = _speechEnabled;
+      if (!ready) {
+        ready = await _initEngine();
+      }
+
+      if (!ready) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('خدمة تحويل الصوت غير مهيأة، تأكد من تثبيت تطبيق Google وتحديثه'), backgroundColor: Colors.orangeAccent),
+          );
+        }
+        return;
+      }
+
+      await SheekhaFullEngine.loadLearnedDictionary();
+
+      try {
+        await initializeBackgroundService();
+        await FlutterBackgroundService().startService();
+      } catch (_) {}
+
       setState(() {
         _isListening = true;
         _currentStatusText = AppStrings.listeningNow;
@@ -901,7 +934,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
               String statusVal = rowUsesRasedCols && cellVal(2).isNotEmpty ? cellVal(2) : 'مطابق';
               String typeVal = rowUsesRasedCols ? cellVal(3) : cellVal(1);
               String distVal = rowUsesRasedCols && cellVal(4).isNotEmpty ? cellVal(4) : _currentDistrict;
-              String streetVal = rowUsesRasedCols && cellVal(5).isNotEmpty ? cellVal(5) : _currentStreet;
+              String streetVal = rowUsesRasedCols ? cellVal(5).isNotEmpty ? cellVal(5) : _currentStreet;
               String shassisVal = rowUsesRasedCols ? cellVal(6) : cellVal(3);
               String ownerVal = rowUsesRasedCols ? cellVal(7) : cellVal(2);
               String noteVal = rowUsesRasedCols && cellVal(9).isNotEmpty ? cellVal(9) : 'سجل سابق';
@@ -1223,7 +1256,7 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Colors.redAccent, width: 3)),
         title: Text(AppStrings.isAr ? '🚨 تم رصد سيارة مطلوبة!' : '🚨 Wanted Car Detected!', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 18), textAlign: TextAlign.center),
         content: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: minAxisSize(),
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(padding: const EdgeInsets.symmetric(vertical: 10), decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(12)), child: Text('$letters $digits', textAlign: TextAlign.center, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black87))),
@@ -1239,6 +1272,8 @@ class _SheekhaHomeScreenState extends State<SheekhaHomeScreen> {
       ),
     );
   }
+
+  MainAxisSize minAxisSize() => MainAxisSize.min;
 
   @override
   Widget build(BuildContext context) {

@@ -19,6 +19,9 @@ dependencies:
   permission_handler: ^10.4.5
   speech_to_text: ^6.6.0
   
+  # Neural Offline AI Voice Engine (Whisper)
+  whisper_flutter_plus: ^0.1.3
+  
   # NoSQL Database (O(1) Speed)
   isar: ^3.1.0+1
   isar_flutter_libs: ^3.1.0+1
@@ -38,3 +41,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/models/
